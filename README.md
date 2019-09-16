@@ -146,8 +146,11 @@ CRR = (1.0 - CER) * 100.0
 $ python3 -m venv .venv
 $ . .venv/bin/activate
 $ pip install -r requirements.txt
+$ pip install git+https://github.com/n-CLAIR/nsml-local
 $ ./run.sh
 ```
+
+> 위의 것을 따르면 자동으로 설치됩니다 아래는 무시해주세요
 
 1. edit-distance library (Levenshtein)
   ```bash
