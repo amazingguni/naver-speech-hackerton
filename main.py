@@ -220,6 +220,8 @@ def evaluate(model, dataloader, queue, criterion, device):
 
             display = random.randrange(0, 100) == 0
             dist, length = get_distance(target, y_hat, display=display)
+            sample_idx = random.randrange(0, len(target))
+            logger.info('\nTarget: {}\nY_Hat : {}'.format(label_to_string(target[sample_idx]), label_to_string(y_hat[sample_idx])))
             total_dist += dist
             total_length += length
             total_sent_num += target.size(0)
