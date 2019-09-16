@@ -1,0 +1,5 @@
+nsml==0.0
+numpy==1.17.2
+python-Levenshtein==0.12.0
+torch==1.2.0
+UNKNOWN==0.0.0

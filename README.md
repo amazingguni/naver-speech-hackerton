@@ -140,6 +140,15 @@ CRR = (1.0 - CER) * 100.0
 ### NSML Local
 > NSML을 로컬 머신에서 실행하여 초기 코드 작성 및 디버깅을 빠르게 진행함
 #### 1. Installation
+
+```sh
+# python3.6 이상
+$ python3 -m venv .venv
+$ . .venv/bin/activate
+$ pip install -r requirements.txt
+$ ./run.sh
+```
+
 1. edit-distance library (Levenshtein)
   ```bash
   [hack]$ pip install python-Levenshtein
