@@ -89,7 +89,7 @@ def get_spectrogram_feature(filepath):
 
     mel_spectrogram = torch.from_numpy(mel_spectrogram)
     mel_spectrogram = mel_spectrogram.transpose(0, 1)
-    print(mel_spectrogram.shape)
+    #print(mel_spectrogram.shape)
 
 
     return mel_spectrogram

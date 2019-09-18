@@ -146,7 +146,7 @@ CRR = (1.0 - CER) * 100.0
 # python3.6 이상
 $ python3 -m venv .venv
 $ . .venv/bin/activate
-$ pip install -r requirements.txt
+$ pip install -r requirements-dev.txt
 $ pip install git+https://github.com/n-CLAIR/nsml-local
 $ ./run.sh
 ```
