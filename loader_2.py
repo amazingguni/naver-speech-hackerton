@@ -48,27 +48,43 @@ def load_targets(path):
             key, target = line.strip().split(',')
             target_dict[key] = target
 
+
 def get_spectrogram_feature(filepath):
-    """
     (rate, width, sig) = wavio.readwav(filepath)
     sig = sig.ravel()
 
     stft = torch.stft(torch.FloatTensor(sig),
-                        N_FFT,
-                        hop_length=int(0.01*SAMPLE_RATE),
-                        win_length=int(0.030*SAMPLE_RATE),
-                        window=torch.hamming_window(int(0.030*SAMPLE_RATE)),
-                        center=False,
-                        normalized=False,
-                        onesided=True)
+                      N_FFT,
+                      hop_length=int(0.01 * SAMPLE_RATE),
+                      win_length=int(0.030 * SAMPLE_RATE),
+                      window=torch.hamming_window(int(0.030 * SAMPLE_RATE)),
+                      center=False,
+                      normalized=False,
+                      onesided=True)
 
-    stft = (stft[:,:,0].pow(2) + stft[:,:,1].pow(2)).pow(0.5);
+    stft = (stft[:, :, 0].pow(2) + stft[:, :, 1].pow(2)).pow(0.5);
+
+    tmp = stft.view(-1)
+    #mu += tmp.mean
+    #sig += tmp.std
+
+    #count = count + 1
+
+    #print("mu", mu / count)
+    #print("sig", sig / count)
+
     amag = stft.numpy();
     feat = torch.FloatTensor(amag)
     feat = torch.FloatTensor(feat).transpose(0, 1)
+    feat = feat.view(-1, feat.numpy().shape[0], feat.numpy().shape[1])
 
-    print(f'feat: {feat.shape}')
+    feat = spec_augment_pytorch.spec_augment(mel_spectrogram=feat)
+    feat = feat.view(feat.numpy().shape[1], feat.numpy().shape[2])
+
+    # print(feat.shape)
     """
+
+
     audio, sampling_rate = librosa.load(filepath)
     #print(sampling_rate)
     #print(torch.hamming_window(int(0.030*SAMPLE_RATE)))
@@ -76,21 +92,21 @@ def get_spectrogram_feature(filepath):
                                                      sr=SAMPLE_RATE,
                                                      n_fft= N_FFT,
                                                      n_mels=257,
-                                                     hop_length=int(0.01 * SAMPLE_RATE),
-                                                     win_length=int(0.030 * SAMPLE_RATE),
-                                                     window=torch.hamming_window(int(0.030 * SAMPLE_RATE)).numpy(),
+                                                     hop_length=int(0.01*SAMPLE_RATE),
+                                                     win_length=int(0.030*SAMPLE_RATE),
+                                                     window=torch.hamming_window(int(0.030*SAMPLE_RATE)).numpy(),
                                                      center=False,
                                                      fmax=8000)
-    
+
     # reshape spectrogram shape to [batch_size, time, frequency]
     shape = mel_spectrogram.shape
 
     mel_spectrogram = torch.from_numpy(mel_spectrogram)
     mel_spectrogram = mel_spectrogram.transpose(0, 1)
-    print(f'mel : {mel_spectrogram.shape}')
+    print(mel_spectrogram.shape)
+    """
 
-
-    return mel_spectrogram
+    return feat
 
 def get_script(filepath, bos_id, eos_id):
     key = filepath.split('/')[-1].split('.')[0]
