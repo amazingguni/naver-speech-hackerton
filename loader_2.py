@@ -49,6 +49,7 @@ def load_targets(path):
             target_dict[key] = target
 
 def get_spectrogram_feature(filepath):
+    """
     (rate, width, sig) = wavio.readwav(filepath)
     sig = sig.ravel()
 
@@ -67,7 +68,7 @@ def get_spectrogram_feature(filepath):
     feat = torch.FloatTensor(feat).transpose(0, 1)
 
     print(f'feat: {feat.shape}')
-
+    """
     audio, sampling_rate = librosa.load(filepath)
     #print(sampling_rate)
     #print(torch.hamming_window(int(0.030*SAMPLE_RATE)))
