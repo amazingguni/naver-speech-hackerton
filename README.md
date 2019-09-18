@@ -113,6 +113,7 @@ model DataParallel(
 )
 ```
 
+
 ## Leader board
 ### Score
 ```
@@ -140,6 +141,18 @@ CRR = (1.0 - CER) * 100.0
 ### NSML Local
 > NSML을 로컬 머신에서 실행하여 초기 코드 작성 및 디버깅을 빠르게 진행함
 #### 1. Installation
+
+```sh
+# python3.6 이상
+$ python3 -m venv .venv
+$ . .venv/bin/activate
+$ pip install -r requirements.txt
+$ pip install git+https://github.com/n-CLAIR/nsml-local
+$ ./run.sh
+```
+
+> 위의 것을 따르면 자동으로 설치됩니다 아래는 무시해주세요
+
 1. edit-distance library (Levenshtein)
   ```bash
   [hack]$ pip install python-Levenshtein
