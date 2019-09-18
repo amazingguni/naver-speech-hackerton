@@ -72,8 +72,8 @@ def get_spectrogram_feature(filepath):
 
 
     audio, sampling_rate = librosa.load(filepath)
-    print(sampling_rate)
-    print(torch.hamming_window(int(0.030*SAMPLE_RATE)))
+    #print(sampling_rate)
+    #print(torch.hamming_window(int(0.030*SAMPLE_RATE)))
     mel_spectrogram = librosa.feature.melspectrogram(y=audio,
                                                      sr=SAMPLE_RATE,
                                                      n_fft= N_FFT,
@@ -81,13 +81,15 @@ def get_spectrogram_feature(filepath):
                                                      hop_length=int(0.01*SAMPLE_RATE),
                                                      win_length=int(0.030*SAMPLE_RATE),
                                                      window=torch.hamming_window(int(0.030*SAMPLE_RATE)).numpy(),
-                                                     center=False)
+                                                     center=False,
+                                                     fmax=8000)
     
     # reshape spectrogram shape to [batch_size, time, frequency]
     shape = mel_spectrogram.shape
 
     mel_spectrogram = torch.from_numpy(mel_spectrogram)
     mel_spectrogram = mel_spectrogram.transpose(0, 1)
+    print(mel_spectrogram.shape)
 
 
     return mel_spectrogram
