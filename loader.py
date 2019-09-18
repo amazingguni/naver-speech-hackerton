@@ -16,6 +16,7 @@ limitations under the License.
 
 #-*- coding: utf-8 -*-
 
+import numpy as np
 import os
 import sys
 import math
@@ -26,6 +27,9 @@ import random
 import threading
 import logging
 from torch.utils.data import Dataset, DataLoader
+
+import librosa
+import spec_augment_pytorch
 
 logger = logging.getLogger('root')
 FORMAT = "[%(asctime)s %(filename)s:%(lineno)s - %(funcName)s()] %(message)s"
@@ -45,6 +49,7 @@ def load_targets(path):
             target_dict[key] = target
 
 def get_spectrogram_feature(filepath):
+    """
     (rate, width, sig) = wavio.readwav(filepath)
     sig = sig.ravel()
 
@@ -62,7 +67,30 @@ def get_spectrogram_feature(filepath):
     feat = torch.FloatTensor(amag)
     feat = torch.FloatTensor(feat).transpose(0, 1)
 
-    return feat
+    print(feat.shape)
+    """
+
+
+    audio, sampling_rate = librosa.load(filepath)
+    print(sampling_rate)
+    print(torch.hamming_window(int(0.030*SAMPLE_RATE)))
+    mel_spectrogram = librosa.feature.melspectrogram(y=audio,
+                                                     sr=SAMPLE_RATE,
+                                                     n_fft= N_FFT,
+                                                     n_mels=257,
+                                                     hop_length=int(0.01*SAMPLE_RATE),
+                                                     win_length=int(0.030*SAMPLE_RATE),
+                                                     window=torch.hamming_window(int(0.030*SAMPLE_RATE)).numpy(),
+                                                     center=False)
+    
+    # reshape spectrogram shape to [batch_size, time, frequency]
+    shape = mel_spectrogram.shape
+
+    mel_spectrogram = torch.from_numpy(mel_spectrogram)
+    mel_spectrogram = mel_spectrogram.transpose(0, 1)
+
+
+    return mel_spectrogram
 
 def get_script(filepath, bos_id, eos_id):
     key = filepath.split('/')[-1].split('.')[0]
