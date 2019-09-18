@@ -49,7 +49,6 @@ def load_targets(path):
             target_dict[key] = target
 
 def get_spectrogram_feature(filepath):
-    """
     (rate, width, sig) = wavio.readwav(filepath)
     sig = sig.ravel()
 
@@ -67,9 +66,7 @@ def get_spectrogram_feature(filepath):
     feat = torch.FloatTensor(amag)
     feat = torch.FloatTensor(feat).transpose(0, 1)
 
-    print(feat.shape)
-    """
-
+    print(f'feat: {feat.shape}')
 
     audio, sampling_rate = librosa.load(filepath)
     #print(sampling_rate)
@@ -78,9 +75,9 @@ def get_spectrogram_feature(filepath):
                                                      sr=SAMPLE_RATE,
                                                      n_fft= N_FFT,
                                                      n_mels=257,
-                                                     hop_length=int(0.01*SAMPLE_RATE),
-                                                     win_length=int(0.030*SAMPLE_RATE),
-                                                     window=torch.hamming_window(int(0.030*SAMPLE_RATE)).numpy(),
+                                                     hop_length=int(0.01 * SAMPLE_RATE),
+                                                     win_length=int(0.030 * SAMPLE_RATE),
+                                                     window=torch.hamming_window(int(0.030 * SAMPLE_RATE)).numpy(),
                                                      center=False,
                                                      fmax=8000)
     
@@ -89,7 +86,7 @@ def get_spectrogram_feature(filepath):
 
     mel_spectrogram = torch.from_numpy(mel_spectrogram)
     mel_spectrogram = mel_spectrogram.transpose(0, 1)
-    #print(mel_spectrogram.shape)
+    print(f'mel : {mel_spectrogram.shape}')
 
 
     return mel_spectrogram
