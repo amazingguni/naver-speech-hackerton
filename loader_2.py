@@ -49,7 +49,7 @@ def load_targets(path):
             target_dict[key] = target
 
 
-def get_spectrogram_feature(filepath):
+def get_spectrogram_feature(filepath, spec_augment=False):
     (rate, width, sig) = wavio.readwav(filepath)
     sig = sig.ravel()
 
@@ -76,12 +76,13 @@ def get_spectrogram_feature(filepath):
     amag = stft.numpy();
     feat = torch.FloatTensor(amag)
     feat = torch.FloatTensor(feat).transpose(0, 1)
-    feat = feat.view(-1, feat.numpy().shape[0], feat.numpy().shape[1])
+    if spec_augment:
+        feat = feat.view(-1, feat.numpy().shape[0], feat.numpy().shape[1])
+        feat = spec_augment_pytorch.spec_augment(mel_spectrogram=feat)
+        feat = feat.view(feat.numpy().shape[1], feat.numpy().shape[2])
+    return feat
 
-    feat = spec_augment_pytorch.spec_augment(mel_spectrogram=feat)
-    feat = feat.view(feat.numpy().shape[1], feat.numpy().shape[2])
 
-    # print(feat.shape)
     """
 
 
@@ -106,7 +107,6 @@ def get_spectrogram_feature(filepath):
     print(mel_spectrogram.shape)
     """
 
-    return feat
 
 def get_script(filepath, bos_id, eos_id):
     key = filepath.split('/')[-1].split('.')[0]
@@ -133,7 +133,7 @@ class BaseDataset(Dataset):
         return len(self.wav_paths)
 
     def getitem(self, idx):
-        feat = get_spectrogram_feature(self.wav_paths[idx])
+        feat = get_spectrogram_feature(self.wav_paths[idx], spec_augment=True)
         script = get_script(self.script_paths[idx], self.bos_id, self.eos_id)
         return feat, script
 
