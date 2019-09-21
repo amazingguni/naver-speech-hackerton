@@ -71,7 +71,8 @@ def handle_single_jaum(s):
         if len(s) > (idx + 1) and \
            is_single_jaum(s[idx + 1]) and  is_hangul(c):
             single_jaum = s[idx + 1]
-            result += compose(f'{decompose(c)[:-1]}{single_jaum}ᴥ')
+            c = compose(f'{decompose(c)[:-1]}{single_jaum}ᴥ')
+            result += c[0]
             continue
         result += c
     return result
