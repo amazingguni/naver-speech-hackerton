@@ -34,13 +34,15 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torch.optim as optim
 import Levenshtein as Lev 
-
 import label_loader
+from label_loader import CharLabelLoader, generate_word_label_index_file, generate_word_label_file
 from loader_2 import *
 from models import EncoderRNN, DecoderRNN, Seq2seq
 
 import nsml
 from nsml import GPU_NUM, DATASET_PATH, DATASET_NAME, HAS_DATASET
+from hgtk.text import compose, decompose
+from hgtk.checker import is_hangul, has_batchim
 
 char2index = dict()
 index2char = dict()
@@ -52,6 +54,30 @@ if HAS_DATASET == False:
     DATASET_PATH = './sample_dataset'
 
 DATASET_PATH = os.path.join(DATASET_PATH, 'train')
+TRAIN_LABEL_CHAR_PATH = os.path.join(DATASET_PATH, 'train_label')
+TRAIN_LABEL_POS_PATH = './train_label.pos'
+
+def is_single_jaum(c):
+    if c < 'ㄱ': return False
+    if c > 'ㅎ': return False
+    return True
+
+
+
+def handle_single_jaum(s):
+    result = ''
+    for idx, c in enumerate(s):
+        if is_single_jaum(s[idx]): continue
+        if len(s) > (idx + 1) and \
+           is_single_jaum(s[idx + 1]) and  is_hangul(c):
+            single_jaum = s[idx + 1]
+            result += compose(f'{decompose(c)[:-1]}{single_jaum}ᴥ')
+            continue
+        result += c
+    return result
+            
+        
+        
 
 def label_to_string(labels):
     if len(labels.shape) == 1:
@@ -60,6 +86,7 @@ def label_to_string(labels):
             if i.item() == EOS_token:
                 break
             sent += index2char[i.item()]
+        sent = handle_single_jaum(sent)
         return sent
 
     elif len(labels.shape) == 2:
@@ -70,6 +97,7 @@ def label_to_string(labels):
                 if j.item() == EOS_token:
                     break
                 sent += index2char[j.item()]
+            sent = handle_single_jaum(sent)
             sents.append(sent)
 
         return sents
@@ -292,6 +320,7 @@ def split_dataset(config, wav_paths, script_paths, valid_ratio=0.05):
 
     return train_batch_num, train_dataset_list, valid_dataset
 
+
 def main():
 
     global char2index
@@ -317,14 +346,29 @@ def main():
     parser.add_argument('--save_name', type=str, default='model', help='the name of model in nsml or local')
     parser.add_argument('--mode', type=str, default='train')
     parser.add_argument("--pause", type=int, default=0)
+    parser.add_argument('--word', action='store_true', help='Train/Predict model using word based label (default: False)')
+    parser.add_argument('--gen_label_index', action='store_true', help='Generate word label index map(default: False)')
 
     args = parser.parse_args()
-
-    char2index, index2char = label_loader.load_label('./hackathon.labels')
+    char_loader = CharLabelLoader()
+    char_loader.load_char2index('./hackathon.labels')
+    label_loader = char_loader
+    if args.word:
+        if args.gen_label_index:
+            generate_word_label_index_file(char_loader, TRAIN_LABEL_CHAR_PATH)
+            from subprocess import call
+            call(f'cat {TRAIN_LABEL_CHAR_PATH}', shell=True)
+        # 형태소 단위의 로더로 변경
+        word_loader = CharLabelLoader()
+        word_loader.load_char2index('./hackathon.pos.labels')
+        label_loader = word_loader
+        if os.path.exists(TRAIN_LABEL_CHAR_PATH):
+            generate_word_label_file(char_loader, word_loader, TRAIN_LABEL_POS_PATH, TRAIN_LABEL_CHAR_PATH)
+    char2index = label_loader.char2index
+    index2char = label_loader.index2char
     SOS_token = char2index['<s>']
     EOS_token = char2index['</s>']
     PAD_token = char2index['_']
-
     random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
@@ -379,7 +423,10 @@ def main():
     begin_epoch = 0
 
     # load all target scripts for reducing disk i/o
-    target_path = os.path.join(DATASET_PATH, 'train_label')
+    #target_path = os.path.join(DATASET_PATH, 'train_label')
+    target_path = TRAIN_LABEL_CHAR_PATH
+    if args.word:
+        target_path = TRAIN_LABEL_POS_PATH
     load_targets(target_path)
 
     train_batch_num, train_dataset_list, valid_dataset = split_dataset(args, wav_paths, script_paths, valid_ratio=0.05)

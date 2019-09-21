@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 #-*- coding: utf-8 -*-
-
+    
 import numpy as np
 import os
 import sys
@@ -81,31 +81,6 @@ def get_spectrogram_feature(filepath, spec_augment=False):
         feat = spec_augment_pytorch.spec_augment(mel_spectrogram=feat)
         feat = feat.view(feat.numpy().shape[1], feat.numpy().shape[2])
     return feat
-
-
-    """
-
-
-    audio, sampling_rate = librosa.load(filepath)
-    #print(sampling_rate)
-    #print(torch.hamming_window(int(0.030*SAMPLE_RATE)))
-    mel_spectrogram = librosa.feature.melspectrogram(y=audio,
-                                                     sr=SAMPLE_RATE,
-                                                     n_fft= N_FFT,
-                                                     n_mels=257,
-                                                     hop_length=int(0.01*SAMPLE_RATE),
-                                                     win_length=int(0.030*SAMPLE_RATE),
-                                                     window=torch.hamming_window(int(0.030*SAMPLE_RATE)).numpy(),
-                                                     center=False,
-                                                     fmax=8000)
-
-    # reshape spectrogram shape to [batch_size, time, frequency]
-    shape = mel_spectrogram.shape
-
-    mel_spectrogram = torch.from_numpy(mel_spectrogram)
-    mel_spectrogram = mel_spectrogram.transpose(0, 1)
-    print(mel_spectrogram.shape)
-    """
 
 
 def get_script(filepath, bos_id, eos_id):
