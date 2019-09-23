@@ -35,7 +35,7 @@ import spec_augment_pytorch
 import torchaudio
 from torchaudio import transforms
 
-SOUND_MAXLEN=1024
+SOUND_MAXLEN=3002
 WORD_MAXLEN=80
 
 logger = logging.getLogger('root')
@@ -75,6 +75,10 @@ def get_spectrogram_feature(filepath, spec_augment=False):
             feat = feat.view(-1, feat.shape[0], feat.shape[1])
             feat = spec_augment_pytorch.spec_augment(mel_spectrogram=feat)
             feat = feat.view(feat.shape[1], feat.shape[2])
+
+        m = nn.ConstantPad2d((0, 0, 0, SOUND_MAXLEN - feat.shape[0]), 0)
+        feat = m(feat)
+
     return feat
 
 
@@ -104,14 +108,14 @@ class BaseDataset(Dataset):
 
     def getitem(self, idx):
         feat = get_spectrogram_feature(self.wav_paths[idx], spec_augment=True)
-        #print("1")
-        #print(feat.shape)
+
         script = get_script(self.script_paths[idx], self.bos_id, self.eos_id)
-        #print("2")
+
 
         zero_pad= [0] * (WORD_MAXLEN-len(script))
         script+=zero_pad
-        #print(len(script))
+
+
         return feat, script
 
 def _collate_fn(batch):

@@ -52,7 +52,7 @@ SOS_token = 818
 EOS_token = 819
 PAD_token = 0
 
-SOUND_MAXLEN=1024
+SOUND_MAXLEN=3002
 WORD_MAXLEN=80
 
 if HAS_DATASET == False:
@@ -261,14 +261,9 @@ def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
             #output_scripts = scripts
 
             enc_input = feats
-            dec_input = torch.tensor([[SOS_token]+[PAD_token]*(max_len-1)]*batch_size)
+            dec_input = torch.tensor([[SOS_token]+[PAD_token]*(max_len-1)]*4)
 
-            #print("lololololololololololololloloolol11111")
-            #print(enc_input.shape)
-            #print(dec_input.shape)
 
-            #print(enc_input)
-            #print(dec_input)
 
             enc_in = enc_input.view(-1, enc_input.shape[1], enc_input.shape[2])
             dec_in = dec_input.view(-1, dec_input.shape[1])
@@ -284,7 +279,7 @@ def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
                     logit= torch.cat((logit, y_pred[:, i, :].view(y_pred.shape[0], 1, y_pred.shape[2])), dim=1)
 
 
-            print(logit.shape)
+            #print(logit.shape)
 
 
             # logit ready
@@ -443,7 +438,7 @@ def main():
     model.flatten_parameters()
     """
 
-    model = Transformer(d_model= 256, n_head= 8, num_encoder_layers= 6, num_decoder_layers= 6, dim_feedforward= 2048, dropout= 0.1, vocab_size= len(char2index), sound_maxlen= SOUND_MAXLEN, word_maxlen= WORD_MAXLEN)
+    model = Transformer(d_model= 256, n_head= 4, num_encoder_layers= 3, num_decoder_layers= 3, dim_feedforward= 1024, dropout= 0.1, vocab_size= len(char2index), sound_maxlen= SOUND_MAXLEN, word_maxlen= WORD_MAXLEN)
 
     ############
 
