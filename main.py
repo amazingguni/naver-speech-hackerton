@@ -349,6 +349,7 @@ def main():
     parser.add_argument("--pause", type=int, default=0)
     parser.add_argument('--word', action='store_true', help='Train/Predict model using word based label (default: False)')
     parser.add_argument('--gen_label_index', action='store_true', help='Generate word label index map(default: False)')
+    parser.add_argument('--iteration', type=str, help='Iteratiom')
 
     args = parser.parse_args()
     char_loader = CharLabelLoader()
@@ -431,7 +432,9 @@ def main():
     load_targets(target_path)
 
     train_batch_num, train_dataset_list, valid_dataset = split_dataset(args, wav_paths, script_paths, valid_ratio=0.05)
-
+    if args.iteration:
+        logger.info(f'Load {args.iteration}')
+        nsml.load(args.iteration)
     logger.info('start')
 
     train_begin = time.time()
