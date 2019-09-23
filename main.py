@@ -350,6 +350,7 @@ def main():
     parser.add_argument('--word', action='store_true', help='Train/Predict model using word based label (default: False)')
     parser.add_argument('--gen_label_index', action='store_true', help='Generate word label index map(default: False)')
     parser.add_argument('--iteration', type=str, help='Iteratiom')
+    parser.add_argument('--premodel_session', type=str, help='Session name of premodel')
 
     args = parser.parse_args()
     char_loader = CharLabelLoader()
@@ -433,8 +434,12 @@ def main():
 
     train_batch_num, train_dataset_list, valid_dataset = split_dataset(args, wav_paths, script_paths, valid_ratio=0.05)
     if args.iteration:
-        logger.info(f'Load {args.iteration}')
-        nsml.load(args.iteration)
+        if args.premodel_session:
+            nsml.load(args.iteration, session=args.premodel_session)
+            logger.info(f'Load {args.premodel_session} {args.iteration}')
+        else:
+            nsml.load(args.iteration)
+            logger.info(f'Load {args.iteration}')
     logger.info('start')
 
     train_begin = time.time()
