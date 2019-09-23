@@ -35,6 +35,7 @@ def load_label(label_path):
             char2index[char] = int(index)
             index2char[int(index)] = char
 
+
     return char2index, index2char
 
 

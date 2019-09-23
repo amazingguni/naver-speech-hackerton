@@ -44,11 +44,16 @@ from nsml import GPU_NUM, DATASET_PATH, DATASET_NAME, HAS_DATASET
 from hgtk.text import compose, decompose
 from hgtk.checker import is_hangul, has_batchim
 
+from transformer_model.net import Transformer
+
 char2index = dict()
 index2char = dict()
-SOS_token = 0
-EOS_token = 0
+SOS_token = 818
+EOS_token = 819
 PAD_token = 0
+
+SOUND_MAXLEN=1024
+WORD_MAXLEN=80
 
 if HAS_DATASET == False:
     DATASET_PATH = './sample_dataset'
@@ -116,8 +121,10 @@ def get_distance(ref_labels, hyp_labels, display=False):
     total_dist = 0
     total_length = 0
     for i in range(len(ref_labels)):
+
         ref = label_to_string(ref_labels[i])
         hyp = label_to_string(hyp_labels[i])
+
         dist, length = char_distance(ref, hyp)
         total_dist += dist
         total_length += length 
@@ -163,26 +170,38 @@ def train(model, total_batch_size, queue, criterion, optimizer, device, train_be
         feats = feats.to(device)
         scripts = scripts.to(device)
 
-        src_len = scripts.size(1)
-        target = scripts[:, 1:]
+        #src_len = scripts.size(1)
 
-        model.module.flatten_parameters()
-        logit = model(feats, feat_lengths, scripts, teacher_forcing_ratio=teacher_forcing_ratio)
 
-        logit = torch.stack(logit, dim=1).to(device)
 
+
+        input_scripts= scripts
+        output_scripts= scripts
+
+
+        logit = model(feats, input_scripts)
         y_hat = logit.max(-1)[1]
 
-        loss = criterion(logit.contiguous().view(-1, logit.size(-1)), target.contiguous().view(-1))
+
+        print(input_scripts)
+        print(logit)
+
+        #print(logit.shape)
+        #print(y_hat.shape)
+        #print(y_hat)
+
+        # loss pad
+        real_value_index = [scripts.contiguous().view(-1) != 0]
+        loss = criterion(logit.contiguous().view(-1, logit.size(-1))[real_value_index], scripts.contiguous().view(-1)[real_value_index])
         total_loss += loss.item()
         total_num += sum(feat_lengths)
 
         display = random.randrange(0, 100) == 0
-        dist, length = get_distance(target, y_hat, display=display)
+        dist, length = get_distance(scripts, y_hat, display=display)
         total_dist += dist
         total_length += length
 
-        total_sent_num += target.size(0)
+        total_sent_num += scripts.size(0)
 
         loss.backward()
         optimizer.step()
@@ -211,11 +230,10 @@ def train(model, total_batch_size, queue, criterion, optimizer, device, train_be
     logger.info('train() completed')
     return total_loss / total_num, total_dist / total_length
 
-
 train.cumulative_batch_count = 0
 
 
-def evaluate(model, dataloader, queue, criterion, device):
+def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
     logger.info('evaluate() start')
     total_loss = 0.
     total_num = 0
@@ -235,28 +253,55 @@ def evaluate(model, dataloader, queue, criterion, device):
             scripts = scripts.to(device)
 
             src_len = scripts.size(1)
-            target = scripts[:, 1:]
 
-            model.module.flatten_parameters()
-            logit = model(feats, feat_lengths, scripts, teacher_forcing_ratio=0.0)
 
-            logit = torch.stack(logit, dim=1).to(device)
+            #model.module.flatten_parameters()
+
+            #input_scripts = torch.cat((scripts[:, -1].view(-1, 1), scripts[:, :-1]), dim=1)
+            #output_scripts = scripts
+
+            enc_input = feats
+            dec_input = torch.tensor([[SOS_token]+[PAD_token]*(max_len-1)]*batch_size)
+
+            #print("lololololololololololololloloolol11111")
+            #print(enc_input.shape)
+            #print(dec_input.shape)
+
+            #print(enc_input)
+            #print(dec_input)
+
+            enc_in = enc_input.view(-1, enc_input.shape[1], enc_input.shape[2])
+            dec_in = dec_input.view(-1, dec_input.shape[1])
+            logit= None
+            for i in range(max_len):
+                y_pred = model(enc_in.to(device), dec_in.to(device))
+
+                dec_in[:, i] = torch.argmax(y_pred, dim=2)[: ,i]
+
+                if i==0:
+                    logit= y_pred[:, i, :].view(y_pred.shape[0], 1, y_pred.shape[2])
+                else:
+                    logit= torch.cat((logit, y_pred[:, i, :].view(y_pred.shape[0], 1, y_pred.shape[2])), dim=1)
+
+
+            print(logit.shape)
+
+
+            # logit ready
             y_hat = logit.max(-1)[1]
 
-            loss = criterion(logit.contiguous().view(-1, logit.size(-1)), target.contiguous().view(-1))
+            loss = criterion(logit.contiguous().view(-1, logit.size(-1)), scripts.contiguous().view(-1))
             total_loss += loss.item()
             total_num += sum(feat_lengths)
 
             display = random.randrange(0, 100) == 0
-            dist, length = get_distance(target, y_hat, display=display)
-            sample_idx = random.randrange(0, len(target))
-            logger.info('\nTarget: {}\nY_Hat : {}'.format(label_to_string(target[sample_idx]), label_to_string(y_hat[sample_idx])))
+            dist, length = get_distance(scripts, y_hat, display=display)
             total_dist += dist
             total_length += length
-            total_sent_num += target.size(0)
+            total_sent_num += scripts.size(0)
 
-    logger.info('evaluate() completed')
-    return total_loss / total_num, total_dist / total_length
+        logger.info('evaluate() completed')
+        return total_loss / total_num, total_dist / total_length
 
 def bind_model(model, optimizer=None):
     def load(filename, **kwargs):
@@ -382,6 +427,9 @@ def main():
     # N_FFT: defined in loader.py
     feature_size = N_FFT / 2 + 1
 
+
+    ############ model
+    """
     enc = EncoderRNN(feature_size, args.hidden_size,
                      input_dropout_p=args.dropout, dropout_p=args.dropout,
                      n_layers=args.layer_size, bidirectional=args.bidirectional, rnn_cell='gru', variable_lengths=False)
@@ -393,6 +441,11 @@ def main():
 
     model = Seq2seq(enc, dec)
     model.flatten_parameters()
+    """
+
+    model = Transformer(d_model= 256, n_head= 8, num_encoder_layers= 6, num_decoder_layers= 6, dim_feedforward= 2048, dropout= 0.1, vocab_size= len(char2index), sound_maxlen= SOUND_MAXLEN, word_maxlen= WORD_MAXLEN)
+
+    ############
 
     for param in model.parameters():
         param.data.uniform_(-0.08, 0.08)
@@ -400,7 +453,7 @@ def main():
     model = nn.DataParallel(model).to(device)
 
     optimizer = optim.Adam(model.module.parameters(), lr=args.lr)
-    criterion = nn.CrossEntropyLoss(reduction='sum', ignore_index=PAD_token).to(device)
+    criterion = nn.CrossEntropyLoss(reduction='sum').to(device)
 
     bind_model(model, optimizer)
 
@@ -460,7 +513,7 @@ def main():
         valid_loader = BaseDataLoader(valid_dataset, valid_queue, args.batch_size, 0)
         valid_loader.start()
 
-        eval_loss, eval_cer = evaluate(model, valid_loader, valid_queue, criterion, device)
+        eval_loss, eval_cer = evaluate(model, valid_loader, valid_queue, criterion, device, args.max_len, args.batch_size)
         logger.info('Epoch %d (Evaluate) Loss %0.4f CER %0.4f' % (epoch, eval_loss, eval_cer))
 
         valid_loader.join()
