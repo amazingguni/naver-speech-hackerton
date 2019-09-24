@@ -46,14 +46,17 @@ from hgtk.checker import is_hangul, has_batchim
 
 from transformer_model.net import Transformer
 
+from learningrate_schaduler import GradualWarmupScheduler
+
 char2index = dict()
 index2char = dict()
 SOS_token = 818
 EOS_token = 819
 PAD_token = 0
+SOUND_PAD_token = -100
 
 SOUND_MAXLEN=3002
-WORD_MAXLEN=80
+WORD_MAXLEN=150
 
 if HAS_DATASET == False:
     DATASET_PATH = './sample_dataset'
@@ -183,8 +186,9 @@ def train(model, total_batch_size, queue, criterion, optimizer, device, train_be
         y_hat = logit.max(-1)[1]
 
 
-        print(input_scripts)
-        print(logit)
+        #print("1. input_script", input_scripts.shape, input_scripts)
+        #print("2. feats", feats.shape, feats)
+        #print("3. logit", logit.shape, logit)
 
         #print(logit.shape)
         #print(y_hat.shape)
@@ -285,6 +289,12 @@ def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
             # logit ready
             y_hat = logit.max(-1)[1]
 
+            #print(logit.contiguous().view(-1, logit.size(-1)).shape)
+            #print(scripts.contiguous().view(-1).shape)
+
+            #print(logit.contiguous().view(-1, logit.size(-1)).shape)
+            #print(scripts.contiguous().view(-1).shape)
+
             loss = criterion(logit.contiguous().view(-1, logit.size(-1)), scripts.contiguous().view(-1))
             total_loss += loss.item()
             total_num += sum(feat_lengths)
@@ -370,6 +380,8 @@ def main():
     global EOS_token
     global PAD_token
 
+
+
     parser = argparse.ArgumentParser(description='Speech hackathon Baseline')
     parser.add_argument('--hidden_size', type=int, default=512, help='hidden size of model (default: 256)')
     parser.add_argument('--layer_size', type=int, default=3, help='number of layers of model (default: 3)')
@@ -381,7 +393,7 @@ def main():
     parser.add_argument('--max_epochs', type=int, default=10, help='number of max epochs in training (default: 10)')
     parser.add_argument('--lr', type=float, default=1e-04, help='learning rate (default: 0.0001)')
     parser.add_argument('--teacher_forcing', type=float, default=0.5, help='teacher forcing ratio in decoder (default: 0.5)')
-    parser.add_argument('--max_len', type=int, default=80, help='maximum characters of sentence (default: 80)')
+    parser.add_argument('--max_len', type=int, default=WORD_MAXLEN, help='maximum characters of sentence (default: 80)')
     parser.add_argument('--no_cuda', action='store_true', default=False, help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1, help='random seed (default: 1)')
     parser.add_argument('--save_name', type=str, default='model', help='the name of model in nsml or local')
@@ -438,7 +450,7 @@ def main():
     model.flatten_parameters()
     """
 
-    model = Transformer(d_model= 256, n_head= 4, num_encoder_layers= 3, num_decoder_layers= 3, dim_feedforward= 1024, dropout= 0.1, vocab_size= len(char2index), sound_maxlen= SOUND_MAXLEN, word_maxlen= WORD_MAXLEN)
+    model = Transformer(d_model= 128, n_head= 4, num_encoder_layers= 3, num_decoder_layers= 3, dim_feedforward= 1024, dropout= 0.1, vocab_size= len(char2index), sound_maxlen= SOUND_MAXLEN, word_maxlen= WORD_MAXLEN)
 
     ############
 
@@ -448,6 +460,10 @@ def main():
     model = nn.DataParallel(model).to(device)
 
     optimizer = optim.Adam(model.module.parameters(), lr=args.lr)
+
+    scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, args.max_epochs)
+    scheduler_warmup = GradualWarmupScheduler(optimizer, multiplier=8, total_epoch=10, after_scheduler=scheduler_cosine)
+
     criterion = nn.CrossEntropyLoss(reduction='sum').to(device)
 
     bind_model(model, optimizer)

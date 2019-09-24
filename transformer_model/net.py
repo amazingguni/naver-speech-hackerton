@@ -11,6 +11,7 @@ from torch import nn
 from transformer_model.embedding.embeddings import Embeddings
 
 PAD_token = 0
+SOUND_PAD_token = -100
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
@@ -35,7 +36,7 @@ class Transformer(nn.Module):
 
 
 
-        self.input_embedding_sound = Embeddings(d_model, sound_maxlen, vocab_size, PAD_token, False)
+        self.input_embedding_sound = Embeddings(d_model, sound_maxlen, vocab_size, SOUND_PAD_token, False)
         self.input_embedding_word = Embeddings(d_model, word_maxlen, vocab_size, PAD_token, True)
 
 
@@ -59,9 +60,9 @@ class Transformer(nn.Module):
 
 
         # Masking
-        src_key_padding_mask = enc_input == 0 # tensor([[False, False, False,  True,  ...,  True]])
+        src_key_padding_mask = enc_input == SOUND_PAD_token # tensor([[False, False, False,  True,  ...,  True]])
         src_key_padding_mask=src_key_padding_mask[:,:,0]
-        tgt_key_padding_mask = dec_input == 0
+        tgt_key_padding_mask = dec_input == PAD_token
         tgt_key_padding_mask = tgt_key_padding_mask
         memory_key_padding_mask = src_key_padding_mask
         tgt_mask = self.transfomrer.generate_square_subsequent_mask(dec_input.size(1))
