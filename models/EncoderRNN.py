@@ -100,16 +100,25 @@ class EncoderRNN(BaseRNN):
             - **output** (batch, seq_len, hidden_size): variable containing the encoded features of the input sequence
             - **hidden** (num_layers * num_directions, batch, hidden_size): variable containing the features in the hidden state h
         """
-        
+        # [4, 3002, 128]
+        print(f'input_var: {input_var.size()}')
         input_var = input_var.unsqueeze(1)
+        # [4, 1, 3002, 128]
+        print(f'input_var: {input_var.size()}')
         x = self.conv(input_var)
-
+        # [4, 32, 751, 64]
+        print(f'x: {x.size()}')
         # BxCxTxD => BxCxDxT
         x = x.transpose(1, 2)
+        # [4, 751, 32, 64]
+        print(f'x: {x.size()}')
         x = x.contiguous()
+        # [4, 751, 32, 64]
+        print(f'x: {x.size()}')
         sizes = x.size()
         x = x.view(sizes[0], sizes[1], sizes[2] * sizes[3])
-
+        # [4, 751, 2048]
+        print(f'x: {x.size()}')
         if self.training:
             self.rnn.flatten_parameters()
 

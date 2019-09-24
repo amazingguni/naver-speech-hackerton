@@ -301,6 +301,9 @@ def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
 
             display = random.randrange(0, 100) == 0
             dist, length = get_distance(scripts, y_hat, display=display)
+            sample_idx = random.randrange(0, len(scripts))
+            print(y_hat[sample_idx])
+            logger.info('\nTarget: {}\nY_Hat : {}'.format(label_to_string(scripts[sample_idx]), label_to_string(y_hat[sample_idx])))
             total_dist += dist
             total_length += length
             total_sent_num += scripts.size(0)
@@ -388,6 +391,7 @@ def main():
     parser.add_argument('--dropout', type=float, default=0.2, help='dropout rate in training (default: 0.2)')
     parser.add_argument('--bidirectional', action='store_true', help='use bidirectional RNN for encoder (default: False)')
     parser.add_argument('--use_attention', action='store_true', help='use attention between encoder-decoder (default: False)')
+    parser.add_argument('--transformer', action='store_true', help='use transformer instead of seq2seq model (default: False)')
     parser.add_argument('--batch_size', type=int, default=32, help='batch size in training (default: 32)')
     parser.add_argument('--workers', type=int, default=4, help='number of workers in dataset loader (default: 4)')
     parser.add_argument('--max_epochs', type=int, default=10, help='number of max epochs in training (default: 10)')
@@ -436,21 +440,22 @@ def main():
 
 
     ############ model
-    """
-    enc = EncoderRNN(feature_size, args.hidden_size,
+    if args.transformer:
+        model = Transformer(d_model= 512, n_head= 4, num_encoder_layers= 3, num_decoder_layers= 3, dim_feedforward= 1024, dropout= 0.1, vocab_size= len(char2index), sound_maxlen= SOUND_MAXLEN, word_maxlen= WORD_MAXLEN)
+    else:
+        enc = EncoderRNN(feature_size, args.hidden_size,
                      input_dropout_p=args.dropout, dropout_p=args.dropout,
-                     n_layers=args.layer_size, bidirectional=args.bidirectional, rnn_cell='gru', variable_lengths=False)
+                     n_layers=args.layer_size, bidirectional=args.bidirectional, 
+                     rnn_cell='gru', variable_lengths=False)
 
-    dec = DecoderRNN(len(char2index), args.max_len, args.hidden_size * (2 if args.bidirectional else 1),
+        dec = DecoderRNN(len(char2index), args.max_len, args.hidden_size * (2 if args.bidirectional else 1),
                      SOS_token, EOS_token,
                      n_layers=args.layer_size, rnn_cell='gru', bidirectional=args.bidirectional,
                      input_dropout_p=args.dropout, dropout_p=args.dropout, use_attention=args.use_attention)
 
-    model = Seq2seq(enc, dec)
-    model.flatten_parameters()
-    """
+        model = Seq2seq(enc, dec)
+        model.flatten_parameters()
 
-    model = Transformer(d_model= 128, n_head= 4, num_encoder_layers= 3, num_decoder_layers= 3, dim_feedforward= 1024, dropout= 0.1, vocab_size= len(char2index), sound_maxlen= SOUND_MAXLEN, word_maxlen= WORD_MAXLEN)
 
     ############
 
