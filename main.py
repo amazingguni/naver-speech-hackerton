@@ -295,7 +295,6 @@ def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
 
             for i in range(max_len):
                 y_pred = model(enc_in.to(device), dec_in.to(device))
-
                 dec_in[:, i] = torch.argmax(y_pred, dim=2)[:, i]
                 ind_eos = (torch.argmax(y_pred, dim=2)[:, i] == EOS_token).nonzero()
                 ind_eos = ind_eos.cpu().numpy().reshape([ind_eos.shape[0]])
@@ -410,10 +409,9 @@ def main():
     parser.add_argument('--hidden_size', type=int, default=512, help='hidden size of model (default: 256)')
     parser.add_argument('--layer_size', type=int, default=3, help='number of layers of model (default: 3)')
     parser.add_argument('--dropout', type=float, default=0.2, help='dropout rate in training (default: 0.2)')
-    parser.add_argument('--bidirectional', action='store_true',
-                        help='use bidirectional RNN for encoder (default: False)')
-    parser.add_argument('--use_attention', action='store_true',
-                        help='use attention between encoder-decoder (default: False)')
+    parser.add_argument('--bidirectional', action='store_true', help='use bidirectional RNN for encoder (default: False)')
+    parser.add_argument('--use_attention', action='store_true', help='use attention between encoder-decoder (default: False)')
+    parser.add_argument('--transformer', action='store_true', help='use transformer instead of seq2seq model (default: False)')
     parser.add_argument('--batch_size', type=int, default=32, help='batch size in training (default: 32)')
     parser.add_argument('--workers', type=int, default=4, help='number of workers in dataset loader (default: 4)')
     parser.add_argument('--max_epochs', type=int, default=10, help='number of max epochs in training (default: 10)')
@@ -463,19 +461,21 @@ def main():
     feature_size = N_FFT / 2 + 1
 
     ############ model
-    """
-    enc = EncoderRNN(feature_size, args.hidden_size,
+    if args.transformer:
+        model = Transformer(d_model= 128, n_head= 4, num_encoder_layers= 3, num_decoder_layers= 3, dim_feedforward= 1024, dropout= 0.1, vocab_size= len(char2index), sound_maxlen= SOUND_MAXLEN, word_maxlen= WORD_MAXLEN)
+    else:
+        enc = EncoderRNN(feature_size, args.hidden_size,
                      input_dropout_p=args.dropout, dropout_p=args.dropout,
-                     n_layers=args.layer_size, bidirectional=args.bidirectional, rnn_cell='gru', variable_lengths=False)
+                     n_layers=args.layer_size, bidirectional=args.bidirectional, 
+                     rnn_cell='gru', variable_lengths=False)
 
-    dec = DecoderRNN(len(char2index), args.max_len, args.hidden_size * (2 if args.bidirectional else 1),
+        dec = DecoderRNN(len(char2index), args.max_len, args.hidden_size * (2 if args.bidirectional else 1),
                      SOS_token, EOS_token,
                      n_layers=args.layer_size, rnn_cell='gru', bidirectional=args.bidirectional,
                      input_dropout_p=args.dropout, dropout_p=args.dropout, use_attention=args.use_attention)
 
-    model = Seq2seq(enc, dec)
-    model.flatten_parameters()
-    """
+        model = Seq2seq(enc, dec)
+        model.flatten_parameters()
 
     model = Transformer(d_model=128, n_head=4, num_encoder_layers=3, num_decoder_layers=3, dim_feedforward=1024,
                         dropout=0.1, vocab_size=len(char2index), sound_maxlen=SOUND_MAXLEN, word_maxlen=WORD_MAXLEN)

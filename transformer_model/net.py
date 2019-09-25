@@ -17,7 +17,6 @@ device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cp
 
 CNN_SOUND_MAX_LEN = 751
 
-
 class Transformer(nn.Module):
     def __init__(self, d_model, n_head, num_encoder_layers, num_decoder_layers, dim_feedforward, dropout, vocab_size,
                  sound_maxlen, word_maxlen) -> None:
@@ -102,8 +101,6 @@ class Transformer(nn.Module):
         tgt_key_padding_mask = tgt_key_padding_mask
         memory_key_padding_mask = src_key_padding_mask
         tgt_mask = self.transfomrer.generate_square_subsequent_mask(dec_input.size(1))
-
-
         # einsum ref: https://pytorch.org/docs/stable/torch.html#torch.einsum
         # https://obilaniu6266h16.wordpress.com/2016/02/04/einstein-summation-in-numpy/
         x_enc_embed = torch.einsum('ijk->jik', x_enc_embed)
@@ -142,7 +139,8 @@ class Transformer(nn.Module):
         tgt_key_padding_mask = tgt_key_padding_mask
         memory_key_padding_mask = src_key_padding_mask
         tgt_mask = self.transfomrer.generate_square_subsequent_mask(dec_input.size(1))
-
+        
+        
 
         # einsum ref: https://pytorch.org/docs/stable/torch.html#torch.einsum
         # https://obilaniu6266h16.wordpress.com/2016/02/04/einstein-summation-in-numpy/
