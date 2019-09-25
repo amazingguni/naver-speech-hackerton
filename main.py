@@ -177,11 +177,11 @@ def train(model, total_batch_size, queue, criterion, optimizer, device, train_be
 
         # src_len = scripts.size(1)
 
+
         input_scripts = scripts
-        sh= scripts.shape
-        a= scripts[:, 1:]
-        b= torch.ones([sh[0], 1]).to(device).long() * PAD_token
-        output_scripts= torch.cat([a, b], dim=1)
+        sh = scripts.shape
+        output_scripts = torch.ones([sh[0], sh[1]]).to(device).long() * PAD_token
+        output_scripts[:, :sh[1] - 1] = scripts[:, 1:]
 
 
 
@@ -272,9 +272,8 @@ def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
 
             input_scripts = scripts
             sh = scripts.shape
-            a = scripts[:, 1:]
-            b = torch.ones([sh[0], 1]).to(device).long() * PAD_token
-            output_scripts = torch.cat([a, b], dim=1)
+            output_scripts= torch.ones([sh[0], sh[1]]).to(device).long() * PAD_token
+            output_scripts[:, :sh[1]-1]= scripts[:, 1:]
 
             #src_len = scripts.size(1)
 
@@ -290,6 +289,7 @@ def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
             dec_in = dec_input.view(-1, dec_input.shape[1])
             logit = torch.tensor([[[0] * len(char2index)] * max_len] * feats.shape[0]).to(device).float()
             logit[:, :, PAD_token] = 1
+
 
             reach_eos = np.zeros([feats.shape[0], ], dtype=bool)
 
