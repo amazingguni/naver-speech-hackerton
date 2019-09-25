@@ -268,7 +268,6 @@ def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
             dec_input = torch.tensor([[SOS_token]+[PAD_token]*(max_len-1)]*4)
 
 
-
             enc_in = enc_input.view(-1, enc_input.shape[1], enc_input.shape[2])
             dec_in = dec_input.view(-1, dec_input.shape[1])
             logit= None
@@ -277,6 +276,7 @@ def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
 
                 dec_in[:, i] = torch.argmax(y_pred, dim=2)[: ,i]
 
+                y_pred = model(enc_in.to(device), dec_in.to(device))
                 if i==0:
                     logit= y_pred[:, i, :].view(y_pred.shape[0], 1, y_pred.shape[2])
                 else:
@@ -304,6 +304,7 @@ def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
             sample_idx = random.randrange(0, len(scripts))
             print(y_hat[sample_idx])
             logger.info('\nTarget: {}\nY_Hat : {}'.format(label_to_string(scripts[sample_idx]), label_to_string(y_hat[sample_idx])))
+            logger.info('!!!!3')
             total_dist += dist
             total_length += length
             total_sent_num += scripts.size(0)
@@ -441,7 +442,7 @@ def main():
 
     ############ model
     if args.transformer:
-        model = Transformer(d_model= 512, n_head= 4, num_encoder_layers= 3, num_decoder_layers= 3, dim_feedforward= 1024, dropout= 0.1, vocab_size= len(char2index), sound_maxlen= SOUND_MAXLEN, word_maxlen= WORD_MAXLEN)
+        model = Transformer(d_model= 128, n_head= 4, num_encoder_layers= 3, num_decoder_layers= 3, dim_feedforward= 1024, dropout= 0.1, vocab_size= len(char2index), sound_maxlen= SOUND_MAXLEN, word_maxlen= WORD_MAXLEN)
     else:
         enc = EncoderRNN(feature_size, args.hidden_size,
                      input_dropout_p=args.dropout, dropout_p=args.dropout,
