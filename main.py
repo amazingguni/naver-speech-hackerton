@@ -136,8 +136,15 @@ def get_distance(ref_labels, hyp_labels, display=False):
             cer = total_dist / total_length
             logger.info('%d (%0.4f)\n(%s)\n(%s)' % (i, cer, ref, hyp))
     return total_dist, total_length
-
-
+"""
+def label_smoothing(inputs, epsilon=0.1):
+    '''Applies label smoothing. See 5.4 and https://arxiv.org/abs/1512.00567.
+    inputs: 3d tensor. [N, T, V], where V is the number of vocabulary.
+    epsilon: Smoothing rate.
+    '''
+    V = inputs.shape[-1]  # number of channels
+    return ((1 - epsilon) * inputs) + (epsilon / V)
+"""
 def train(model, total_batch_size, queue, criterion, optimizer, device, train_begin, train_loader_count, print_batch=5,
           teacher_forcing_ratio=1):
     total_loss = 0.
@@ -177,7 +184,6 @@ def train(model, total_batch_size, queue, criterion, optimizer, device, train_be
 
         # src_len = scripts.size(1)
 
-
         input_scripts = scripts
         sh = scripts.shape
         output_scripts = torch.ones([sh[0], sh[1]]).to(device).long() * PAD_token
@@ -195,9 +201,9 @@ def train(model, total_batch_size, queue, criterion, optimizer, device, train_be
         logit = model(feats, input_scripts)
         y_hat = logit.max(-1)[1]
 
-        # print("1. input_script", input_scripts.shape, input_scripts)
-        # print("2. feats", feats.shape, feats)
-        # print("3. logit", logit.shape, logit)
+        #print("1. input_script", input_scripts.shape, input_scripts)
+        #print("2. feats", feats.shape, feats)
+        #print("3. logit", logit.shape, logit)
 
         # print(logit.shape)
         # print(y_hat.shape)
@@ -205,8 +211,7 @@ def train(model, total_batch_size, queue, criterion, optimizer, device, train_be
 
         # loss pad
         #real_value_index = [scripts.contiguous().view(-1) != 0]
-        loss = criterion(logit.contiguous().view(-1, logit.size(-1)),
-                         output_scripts.contiguous().view(-1))
+        loss = criterion(logit.contiguous().view(-1, logit.size(-1)), output_scripts.contiguous().view(-1))
         total_loss += loss.item()
         total_num += sum(feat_lengths)
 
@@ -294,7 +299,9 @@ def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
             reach_eos = np.zeros([feats.shape[0], ], dtype=bool)
 
             for i in range(max_len):
+                #print(i, "model")
                 y_pred = model(enc_in.to(device), dec_in.to(device))
+                #print(i, "model")
                 dec_in[:, i] = torch.argmax(y_pred, dim=2)[:, i]
                 ind_eos = (torch.argmax(y_pred, dim=2)[:, i] == EOS_token).nonzero()
                 ind_eos = ind_eos.cpu().numpy().reshape([ind_eos.shape[0]])
@@ -316,6 +323,7 @@ def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
             # print(logit.contiguous().view(-1, logit.size(-1)).shape)
             # print(scripts.contiguous().view(-1).shape)
 
+
             loss = criterion(logit.contiguous().view(-1, logit.size(-1)), output_scripts.contiguous().view(-1))
             total_loss += loss.item()
             total_num += sum(feat_lengths)
@@ -324,7 +332,11 @@ def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
             # print("display")
             # print(scripts)
             # print(y_hat)
-            display = True
+
+            display = False
+            if ich==1:
+                display = True
+
             dist, length = get_distance(output_scripts, y_hat, display=display)
             total_dist += dist
             total_length += length
@@ -356,7 +368,7 @@ def bind_model(model, optimizer=None):
         input = get_spectrogram_feature(wav_path).unsqueeze(0)
         input = input.to(device)
 
-        logit = model(input_variable=input, input_lengths=None, teacher_forcing_ratio=0)
+        logit = model(input_variable=input, input_lengths=None)
         logit = torch.stack(logit, dim=1).to(device)
 
         y_hat = logit.max(-1)[1]
@@ -406,16 +418,11 @@ def main():
     global PAD_token
 
     parser = argparse.ArgumentParser(description='Speech hackathon Baseline')
-    parser.add_argument('--hidden_size', type=int, default=512, help='hidden size of model (default: 256)')
-    parser.add_argument('--layer_size', type=int, default=3, help='number of layers of model (default: 3)')
-    parser.add_argument('--dropout', type=float, default=0.2, help='dropout rate in training (default: 0.2)')
-    parser.add_argument('--bidirectional', action='store_true', help='use bidirectional RNN for encoder (default: False)')
-    parser.add_argument('--use_attention', action='store_true', help='use attention between encoder-decoder (default: False)')
-    parser.add_argument('--transformer', action='store_true', help='use transformer instead of seq2seq model (default: False)')
+
     parser.add_argument('--batch_size', type=int, default=32, help='batch size in training (default: 32)')
     parser.add_argument('--workers', type=int, default=4, help='number of workers in dataset loader (default: 4)')
     parser.add_argument('--max_epochs', type=int, default=10, help='number of max epochs in training (default: 10)')
-    parser.add_argument('--lr', type=float, default=1e-04, help='learning rate (default: 0.0001)')
+    parser.add_argument('--lr', type=float, default=0.0001, help='learning rate (default: 0.0001)')
     parser.add_argument('--teacher_forcing', type=float, default=0.5,
                         help='teacher forcing ratio in decoder (default: 0.5)')
     parser.add_argument('--max_len', type=int, default=WORD_MAXLEN, help='maximum characters of sentence (default: 80)')
@@ -429,6 +436,19 @@ def main():
     parser.add_argument('--gen_label_index', action='store_true', help='Generate word label index map(default: False)')
     parser.add_argument('--iteration', type=str, help='Iteratiom')
     parser.add_argument('--premodel_session', type=str, help='Session name of premodel')
+
+
+    # transformer model parameter
+    parser.add_argument('--d_model', type=int, default=128, help='transformer_d_model')
+    parser.add_argument('--n_head', type=int, default=8, help='transformer_n_head')
+    parser.add_argument('--num_encoder_layers', type=int, default=4, help='num_encoder_layers')
+    parser.add_argument('--num_decoder_layers', type=int, default=4, help='transformer_num_decoder_layers')
+    parser.add_argument('--dim_feedforward', type=int, default=2048, help='transformer_d_model')
+    parser.add_argument('--dropout', type=float, default=0.1, help='transformer_dropout')
+
+    # transformer warmup parameter
+    parser.add_argument('--warmup_multiplier', type=int, default=8, help='transformer_warmup_multiplier')
+    parser.add_argument('--warmup_epoch', type=int, default=10, help='transformer_warmup_epoch')
 
     args = parser.parse_args()
     char_loader = CharLabelLoader()
@@ -457,30 +477,13 @@ def main():
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device('cuda' if args.cuda else 'cpu')
 
-    # N_FFT: defined in loader.py
-    feature_size = N_FFT / 2 + 1
-
     ############ model
-    if args.transformer:
-        model = Transformer(d_model= 128, n_head= 4, num_encoder_layers= 3, num_decoder_layers= 3, dim_feedforward= 1024, dropout= 0.1, vocab_size= len(char2index), sound_maxlen= SOUND_MAXLEN, word_maxlen= WORD_MAXLEN)
-    else:
-        enc = EncoderRNN(feature_size, args.hidden_size,
-                     input_dropout_p=args.dropout, dropout_p=args.dropout,
-                     n_layers=args.layer_size, bidirectional=args.bidirectional, 
-                     rnn_cell='gru', variable_lengths=False)
+    print("model: transformer")
+    model = Transformer(d_model= args.d_model, n_head= args.n_head, num_encoder_layers= args.num_encoder_layers, num_decoder_layers= args.num_decoder_layers,
+                        dim_feedforward= args.dim_feedforward, dropout= args.dropout, vocab_size= len(char2index), sound_maxlen= SOUND_MAXLEN, word_maxlen= WORD_MAXLEN)
+    ############/
 
-        dec = DecoderRNN(len(char2index), args.max_len, args.hidden_size * (2 if args.bidirectional else 1),
-                     SOS_token, EOS_token,
-                     n_layers=args.layer_size, rnn_cell='gru', bidirectional=args.bidirectional,
-                     input_dropout_p=args.dropout, dropout_p=args.dropout, use_attention=args.use_attention)
 
-        model = Seq2seq(enc, dec)
-        model.flatten_parameters()
-
-    model = Transformer(d_model=128, n_head=4, num_encoder_layers=3, num_decoder_layers=3, dim_feedforward=1024,
-                        dropout=0.1, vocab_size=len(char2index), sound_maxlen=SOUND_MAXLEN, word_maxlen=WORD_MAXLEN)
-
-    ############
 
     for param in model.parameters():
         param.data.uniform_(-0.08, 0.08)
@@ -490,7 +493,7 @@ def main():
     optimizer = optim.Adam(model.module.parameters(), lr=args.lr)
 
     scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, args.max_epochs)
-    scheduler_warmup = GradualWarmupScheduler(optimizer, multiplier=8, total_epoch=10, after_scheduler=scheduler_cosine)
+    scheduler_warmup = GradualWarmupScheduler(optimizer, multiplier=args.warmup_multiplier, total_epoch=args.warmup_epoch, after_scheduler=scheduler_cosine)
 
     criterion = nn.CrossEntropyLoss(reduction='sum', ignore_index=PAD_token).to(device)
 
@@ -537,6 +540,10 @@ def main():
     train_begin = time.time()
 
     for epoch in range(begin_epoch, args.max_epochs):
+        # learning rate scheduler
+        scheduler_warmup.step()
+        for param_group in optimizer.param_groups:
+            print(epoch, "[this epoch learning rate]", param_group['lr'])
 
         train_queue = queue.Queue(args.workers * 2)
 
@@ -550,7 +557,7 @@ def main():
         train_loader.join()
 
 
-        if epoch > 20 or epoch == 0 or epoch == 10:
+        if epoch >50 and epoch%10==9:
             valid_queue = queue.Queue(args.workers * 2)
             valid_loader = BaseDataLoader(valid_dataset, valid_queue, args.batch_size, 0)
             valid_loader.start()
