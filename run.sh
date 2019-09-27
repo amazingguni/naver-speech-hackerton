@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#export CUDA_VISIBLE_DEVICES=""
+export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
 BATCH_SIZE=64
 WORKER_SIZE=32

@@ -60,7 +60,7 @@ SOUND_MAXLEN = 3002
 WORD_MAXLEN = 150
 
 if HAS_DATASET == False:
-    DATASET_PATH = './sample_dataset'
+    DATASET_PATH = '/hdd1/data/naver_speech'
 
 DATASET_PATH = os.path.join(DATASET_PATH, 'train')
 TRAIN_LABEL_CHAR_PATH = os.path.join(DATASET_PATH, 'train_label')
@@ -299,10 +299,12 @@ def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
             reach_eos = np.zeros([feats.shape[0], ], dtype=bool)
 
             for i in range(max_len):
-                #print(i, "model")
+                print(i, dec_in[0])
+
                 y_pred = model(enc_in.to(device), dec_in.to(device))
                 #print(i, "model")
-                dec_in[:, i] = torch.argmax(y_pred, dim=2)[:, i]
+                if i < max_len-1:
+                    dec_in[:, i+1] = torch.argmax(y_pred, dim=2)[:, i]
                 ind_eos = (torch.argmax(y_pred, dim=2)[:, i] == EOS_token).nonzero()
                 ind_eos = ind_eos.cpu().numpy().reshape([ind_eos.shape[0]])
                 reach_eos[ind_eos] = True
@@ -365,11 +367,30 @@ def bind_model(model, optimizer=None):
         model.eval()
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        input = get_spectrogram_feature(wav_path).unsqueeze(0)
-        input = input.to(device)
+        enc_input = get_spectrogram_feature(wav_path).unsqueeze(0)
+        dec_input = torch.tensor([[SOS_token] + [PAD_token] * (WORD_MAXLEN - 1)] * enc_input.shape[0])
 
-        logit = model(input_variable=input, input_lengths=None)
-        logit = torch.stack(logit, dim=1).to(device)
+        enc_in = enc_input.view(-1, enc_input.shape[1], enc_input.shape[2])
+        dec_in = dec_input.view(-1, dec_input.shape[1])
+        logit = torch.tensor([[[0] * len(char2index)] * WORD_MAXLEN] * enc_input.shape[0]).to(device).float()
+        logit[:, :, PAD_token] = 1
+
+        reach_eos = np.zeros([enc_input.shape[0], ], dtype=bool)
+
+        for i in range(WORD_MAXLEN):
+            # print(i, "model")
+            y_pred = model(enc_in.to(device), dec_in.to(device))
+            # print(i, "model")
+            if i < WORD_MAXLEN - 1:
+                dec_in[:, i] = torch.argmax(y_pred, dim=2)[:, i]
+            ind_eos = (torch.argmax(y_pred, dim=2)[:, i] == EOS_token).nonzero()
+            ind_eos = ind_eos.cpu().numpy().reshape([ind_eos.shape[0]])
+            reach_eos[ind_eos] = True
+
+            logit[:, i, :] = y_pred[:, i, :].view(y_pred.shape[0], y_pred.shape[2])
+
+            if reach_eos.mean() == 1.0:
+                break
 
         y_hat = logit.max(-1)[1]
         hyp = label_to_string(y_hat)
@@ -557,7 +578,7 @@ def main():
         train_loader.join()
 
 
-        if epoch >50 and epoch%10==9:
+        if epoch %1==0:
             valid_queue = queue.Queue(args.workers * 2)
             valid_loader = BaseDataLoader(valid_dataset, valid_queue, args.batch_size, 0)
             valid_loader.start()
