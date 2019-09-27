@@ -310,7 +310,7 @@ def evaluate(model, dataloader, queue, criterion, device, max_len, batch_size):
                 reach_eos[ind_eos] = True
 
                 logit[:, i, :] = y_pred[:, i, :].view(y_pred.shape[0], y_pred.shape[2])
-
+                #print(logit.argmax(-1)[0])
                 if reach_eos.mean() == 1.0:
                     break
 
