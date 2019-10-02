@@ -35,10 +35,10 @@ import spec_augment_pytorch
 import torchaudio
 from torchaudio import transforms
 
-SOUND_MAXLEN=3002
+SOUND_MAXLEN=1600
 WORD_MAXLEN=150
-SOUND_PAD_token = -100
-PAD_token = 0
+SOUND_PAD_token = 0
+PAD_token = -1
 
 logger = logging.getLogger('root')
 FORMAT = "[%(asctime)s %(filename)s:%(lineno)s - %(funcName)s()] %(message)s"
@@ -47,15 +47,17 @@ logger.setLevel(logging.INFO)
 
 
 N_FFT = 512
+#N_FFT = 1024
 SAMPLE_RATE = 16000
 
 
 target_dict = dict()
 
 mel_spec_trans = transforms.MelSpectrogram(sample_rate=SAMPLE_RATE, n_fft=N_FFT, win_length=int(0.03 * SAMPLE_RATE),
-                                           hop_length=int(0.01 * SAMPLE_RATE),
+                                           hop_length=int(0.01 * SAMPLE_RATE *2),
                                            window_fn=torch.hamming_window, f_min=50.0, f_max=8000.0,
                                            n_mels=128)
+
 
 to_db_trans = transforms.AmplitudeToDB(top_db=80)
 
@@ -80,14 +82,15 @@ def get_spectrogram_feature(filepath, spec_augment=False):
             feat = spec_augment_pytorch.spec_augment(mel_spectrogram=feat)
             feat = feat.view(feat.shape[1], feat.shape[2])
 
-        m = nn.ConstantPad2d((0, 0, 0, SOUND_MAXLEN - feat.shape[0]), SOUND_PAD_token)
-        feat = m(feat)
+        len_sound = feat.shape[0]
 
-        #print("~~~~~~!!!!!!!!!!!!")
-        #print(feat.shape)
-        #print(feat)
+        #m = nn.ConstantPad2d((0, 0, 0, SOUND_MAXLEN - feat.shape[0]), SOUND_PAD_token)
+        #feat = m(feat)
 
-    return feat
+
+        #print("123123123123", len_sound)
+
+    return feat, len_sound
 
 
 def get_script(filepath, bos_id, eos_id):
@@ -115,7 +118,7 @@ class BaseDataset(Dataset):
         return len(self.wav_paths)
 
     def getitem(self, idx):
-        feat = get_spectrogram_feature(self.wav_paths[idx], spec_augment=True)
+        feat, len_sound = get_spectrogram_feature(self.wav_paths[idx], spec_augment=True)
 
         script = get_script(self.script_paths[idx], self.bos_id, self.eos_id)
 
@@ -124,7 +127,8 @@ class BaseDataset(Dataset):
         script+=zero_pad
 
 
-        return feat, script
+
+        return feat, script, len_sound
 
 def _collate_fn(batch):
     def seq_length_(p):
@@ -133,8 +137,11 @@ def _collate_fn(batch):
     def target_length_(p):
         return len(p[1])
 
-    seq_lengths = [len(s[0]) for s in batch]
+
+    seq_lengths = torch.tensor([s[2] for s in batch])
     target_lengths = [len(s[1]) for s in batch]
+
+
 
     max_seq_sample = max(batch, key=seq_length_)[0]
     max_target_sample = max(batch, key=target_length_)[1]
@@ -201,6 +208,7 @@ class BaseDataLoader(threading.Thread):
             random.shuffle(items)
 
             batch = self.collate_fn(items)
+
             self.queue.put(batch)
         logger.debug('loader %d stop' % (self.thread_id))
 
